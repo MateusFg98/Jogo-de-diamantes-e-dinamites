@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo de Diamantes e Dinamites</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 20px;
+            background-color: #000; /* Cor de fundo preta */
+            color: #FFA500; /* Texto laranja */
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 50px);
+            grid-gap: 5px;
+            justify-content: center;
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #444; /* Fundo das células cinza escuro */
+            font-size: 24px;
+            cursor: pointer;
+            color: #FFA500; /* Texto laranja */
+        }
+        .cell.revealed {
+            background-color: #666; /* Fundo das células reveladas cinza médio */
+            cursor: default;
+        }
+        #creator, #instructions {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #FFA500; /* Texto laranja */
+        }
+        #betSection, #historySection {
+            margin: 20px 0;
+        }
+        #history {
+            width: 300px;
+            height: 100px;
+            margin-top: 10px;
+            overflow-y: auto;
+            background-color: #222; /* Fundo do histórico preto */
+            border: 1px solid #FFA500; /* Borda laranja */
+            padding: 10px;
+            text-align: left;
+            color: #FFA500; /* Texto laranja */
+        }
+        button {
+            background-color: #FFA500; /* Fundo do botão laranja */
+            color: #000; /* Texto preto */
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #FF8C00; /* Laranja mais escuro ao passar o mouse */
+        }
+        input[type="number"] {
+            padding: 5px;
+            border: 1px solid #FFA500; /* Borda laranja */
+            background-color: #222; /* Fundo preto */
+            color: #FFA500; /* Texto laranja */
+        }
+    </style>
+</head>
+<body>
+    <h1>Jogo de Diamantes e Dinamites</h1>
+
+    <div id="betSection">
+        <p>Digite o valor a ser apostado:</p>
+        <input type="number" id="betAmount" placeholder="Valor da aposta" min="1" />
+        <button onclick="setBet()">Registrar Depósito</button>
+        <p id="betDisplay">Aposta: R$ 0</p>
+    </div>
+
+    <p>Escolha a quantidade de dinamites:</p>
+    <button onclick="startGame(3)">3 Dinamites</button>
+    <button onclick="startGame(5)">5 Dinamites</button>
+
+    <div id="gameBoard" class="grid"></div>
+    <p id="message"></p>
+
+    <div id="historySection">
+        <p>Histórico de Perda:</p>
+        <div id="history">Nenhuma perda registrada.</div>
+    </div>
+
+    <div id="instructions">
+        <p>Após ganhar ou perder o jogo, tire um print da tela e mande para o número <strong>47999562043</strong> para que o dono da banca tenha certeza sobre seu ganho/perda.</p>
+    </div>
+
+    <div id="creator">Criado por Mateus Ferretto Gardini</div>
+
+    <script>
+        const boardSize = 5;
+        let dynamiteCount, cells, revealedCount, gameOver, betAmount;
+
+        function setBet() {
+            const betInput = document.getElementById('betAmount');
+            betAmount = parseFloat(betInput.value) || 0;
+            document.getElementById('betDisplay').textContent = `Aposta: R$ ${betAmount.toFixed(2)}`;
+            betInput.value = '';
+        }
+
+        function startGame(dynamiteNum) {
+            if (betAmount <= 0) {
+                alert('Por favor, registre um valor de aposta.');
+                return;
+            }
+
+            dynamiteCount = dynamiteNum;
+            cells = [];
+            revealedCount = 0;
+            gameOver = false;
+            document.getElementById('message').textContent = '';
+            generateBoard();
+        }
+
+        function generateBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+            const positions = Array.from({ length: boardSize * boardSize }, (_, i) => i);
+            const dynamitePositions = getRandomPositions(dynamiteCount, positions);
+
+            for (let i = 0; i < boardSize * boardSize; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.index = i;
+                cell.onclick = handleCellClick;
+                board.appendChild(cell);
+                cells.push(cell);
+            }
+
+            dynamitePositions.forEach(pos => {
+                cells[pos].dataset.type = 'dynamite';
+            });
+
+            cells.forEach(cell => {
+                if (!cell.dataset.type) cell.dataset.type = 'diamond';
+            });
+        }
+
+        function getRandomPositions(count, positions) {
+            const result = [];
+            while (result.length < count) {
+                const randomIndex = Math.floor(Math.random() * positions.length);
+                result.push(positions.splice(randomIndex, 1)[0]);
+            }
+            return result;
+        }
+
+        function handleCellClick(event) {
+            if (gameOver) return;
+            const cell = event.currentTarget;
+            if (cell.classList.contains('revealed')) return;
+
+            cell.classList.add('revealed');
+            if (cell.dataset.type === 'dynamite') {
+                cell.textContent = '🧨';
+                gameOver = true;
+                document.getElementById('message').textContent = `Você perdeu! Total perdido: R$ ${betAmount.toFixed(2)}`;
+                addToHistory(`Perda: R$ ${betAmount.toFixed(2)}`);
+                betAmount = 0; // Resetar o valor apostado
+                document.getElementById('betDisplay').textContent = `Aposta: R$ ${betAmount.toFixed(2)}`;
+                revealAllCells();
+            } else {
+                cell.textContent = '💎';
+                revealedCount++;
+                if (revealedCount === (boardSize * boardSize - dynamiteCount)) {
+                    document.getElementById('message').textContent = `Você ganhou! Total ganho: R$ ${ (2 * betAmount).toFixed(2) }`;
+                    betAmount = 0; // Resetar o valor apostado após ganhar
+                    document.getElementById('betDisplay').textContent = `Aposta: R$ ${betAmount.toFixed(2)}`;
+                }
+            }
+        }
+
+        function revealAllCells() {
+            cells.forEach(cell => {
+                if (!cell.classList.contains('revealed')) {
+                    cell.classList.add('revealed');
+                    if (cell.dataset.type === 'dynamite') {
+                        cell.textContent = '🧨';
+                    } else {
+                        cell.textContent = '💎';
+                    }
+                }
+            });
+        }
+
+        function addToHistory(message) {
+            const history = document.getElementById('history');
+            const newEntry = document.createElement('p');
+            newEntry.textContent = message;
+            history.appendChild(newEntry);
+        }
+    </script>
+</body>
+</html>
